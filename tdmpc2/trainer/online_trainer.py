@@ -50,6 +50,46 @@ class OnlineTrainer(Trainer):
 			episode_success=np.nanmean(ep_successes),
 			episode_length= np.nanmean(ep_lengths),
 		)
+	
+
+	def eval_value(self, n_samples=100):
+		"""evaluate value approximation."""
+		# MC value estimation
+		mc_ep_rewards = []
+		obses = []
+		actions = []
+		for i in range(n_samples):
+			obs, done, ep_reward, t = self.env.reset(), False, 0, 0 ## Note: self.env.reset()[0] depending on codebase - Depends if info returned or nah
+			obses.append(obs)
+			while not done:
+				action = self.agent.act(obs, t0=t == 0, eval_mode=True)
+				if t == 0:
+					actions.append(action)
+				obs, reward, done, info = self.env.step(action)
+				# done = done or truncated
+				ep_reward += reward * self.agent.discount ** t
+				t += 1
+			mc_ep_rewards.append(ep_reward)
+
+		# Value function approximation
+		q_values = []
+		for i in range(n_samples):
+			# obs, done, ep_reward, t = self.env.reset()[0], False, 0, 0
+			t = 0
+			obs = obses[i]
+			action = actions[i]
+			# action = self.agent.act(obs, t0=t == 0, eval_mode=True) # Redundant?
+			task = None
+			q_value = self.agent.model.Q(self.agent.model.encode(obs.to(self.agent.device), task), 
+										 action.to(self.agent.device), 
+										 task, return_type="avg") ## TODO: avg/min/min-all
+			q_values.append(q_value.detach().cpu().numpy())
+		
+		return dict(
+			mc_value= np.nanmean(mc_ep_rewards),
+			q_value= np.nanmean(q_values),
+		)
+
 
 	def to_td(self, obs, action=None, reward=None, terminated=None):
 		"""Creates a TensorDict for a new episode."""
@@ -83,8 +123,11 @@ class OnlineTrainer(Trainer):
 			if done:
 				if eval_next:
 					eval_metrics = self.eval()
+					if self.cfg.eval_value:
+						eval_metrics.update(self.eval_value())
+					print(eval_metrics)
 					eval_metrics.update(self.common_metrics())
-					self.logger.log(eval_metrics, 'eval')
+					self.logger.log(eval_metrics, 'eval', eval_value=self.cfg.eval_value)
 					eval_next = False
 
 				if self._step > 0:

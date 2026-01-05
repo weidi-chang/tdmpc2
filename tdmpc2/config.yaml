@@ -32,6 +32,7 @@ data_dir: ???
 
 # planning
 mpc: true
+eval_value: true
 iterations: 6
 num_samples: 512
 num_elites: 64
@@ -67,7 +68,7 @@ simnorm_dim: 8
 wandb_project: ???
 wandb_entity: ???
 wandb_silent: false
-enable_wandb: true
+enable_wandb: false
 save_csv: true
 
 # misc
