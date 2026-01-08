@@ -14,6 +14,7 @@ class OnlineTrainer(Trainer):
 		self._step = 0
 		self._ep_idx = 0
 		self._start_time = time()
+		self.alt_counter = 0
 
 	def common_metrics(self):
 		"""Return a dictionary of current metrics."""
@@ -82,7 +83,7 @@ class OnlineTrainer(Trainer):
 			task = None
 			q_value = self.agent.model.Q(self.agent.model.encode(obs.to(self.agent.device), task), 
 										 action.to(self.agent.device), 
-										 task, return_type="avg") ## TODO: avg/min/min-all
+										 task, return_type="min_all") ## TODO: avg/min/min-all
 			q_values.append(q_value.detach().cpu().numpy())
 		
 		return dict(
@@ -123,12 +124,14 @@ class OnlineTrainer(Trainer):
 			if done:
 				if eval_next:
 					eval_metrics = self.eval()
-					if self.cfg.eval_value:
+					if self.cfg.eval_value and self.alt_counter % 40 == 0:
 						eval_metrics.update(self.eval_value())
 					print(eval_metrics)
 					eval_metrics.update(self.common_metrics())
 					self.logger.log(eval_metrics, 'eval', eval_value=self.cfg.eval_value)
 					eval_next = False
+					self.alt_counter += 1
+
 
 				if self._step > 0:
 					if info['terminated'] and not self.cfg.episodic:
