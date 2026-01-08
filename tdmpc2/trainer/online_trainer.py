@@ -126,6 +126,8 @@ class OnlineTrainer(Trainer):
 					eval_metrics = self.eval()
 					if self.cfg.eval_value and self.alt_counter % 40 == 0:
 						eval_metrics.update(self.eval_value())
+					else:
+						eval_metrics.update({'mc_value':-1, 'q_value':-1})
 					print(eval_metrics)
 					eval_metrics.update(self.common_metrics())
 					self.logger.log(eval_metrics, 'eval', eval_value=self.cfg.eval_value)
